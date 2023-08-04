@@ -1,1 +1,1 @@
-# Figma Color chip weidget
+# Figma Color chip widget
