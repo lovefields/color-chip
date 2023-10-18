@@ -3,22 +3,27 @@ interface CollectionMode {
     modeId: string;
 }
 
-interface ChipItem {
+export interface RGBA {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+}
+
+export interface ChipItem {
     id: string;
     description: string;
     hiddenFromPublishing: boolean;
     name: string;
-    valuesByMode: {
-        [key: string]: {
-            type: string;
-            id: string;
-        };
-    }[];
+    type: string;
+    originName: string | null;
+    hashValue: string | null;
+    value: RGBA;
 }
 
 export interface Collection {
     id: string;
     modes: CollectionMode[];
     name: string;
-    child: Variable[];
+    child: { [key: string]: ChipItem[] };
 }

@@ -35,9 +35,9 @@ function ColorChipWidget() {
     switch (mode) {
         case "chip":
             const pageData = currentCollection as Collection;
-            console.log(pageData.child)
+            console.log(pageData)
+
             const listStructure = pageData.modes.map((mode, i) => {
-                console.log(mode);
 
                 return (
                     <AutoLayout key={i} direction="vertical" spacing={12}>
