@@ -1,6 +1,6 @@
 import type { Collection, ChipItem, RGBA } from "./type";
 
-export function getCollectionList(data: VariableCollection[], child: Variable[]): Collection[] {
+export function getCollectionList(data: VariableCollection[], child: Variable[], _figma: PluginAPI): Collection[] {
     const list: Collection[] = [];
     const colorChipList = child.filter((item) => item.resolvedType === "COLOR" && item.hiddenFromPublishing === false);
     const hasColorVariable = colorChipList.length > 0;
@@ -22,16 +22,31 @@ export function getCollectionList(data: VariableCollection[], child: Variable[])
                 childList[mode.modeId] = [];
             });
 
-            console.log(childList);
-
             colorChipList.forEach((childItem) => {
                 if (childItem.variableCollectionId === item) {
                     for (const [key, value] of Object.entries(childItem.valuesByMode)) {
                         const dataValue = value as any;
 
                         if (dataValue?.type !== undefined) {
-                            console.log("other chip");
-                            // TODO : 값 추출해서 넣기
+                            const originalChip = _figma.variables.getVariableById(dataValue.id);
+
+                            if (originalChip !== null) {
+                                for (const [originKey, originValue] of Object.entries(originalChip.valuesByMode)) {
+                                    const originDataValue = originValue as RGBA;
+
+                                    childList[key].push({
+                                        id: childItem.id,
+                                        hiddenFromPublishing: childItem.hiddenFromPublishing,
+                                        name: childItem.name,
+                                        originName: originalChip.name,
+                                        value: originDataValue as RGBA,
+                                        type: "origin",
+                                        hexValue: getHexValue(originDataValue),
+                                        opacity: Math.round(originDataValue.a * 100),
+                                        description: childItem.description,
+                                    });
+                                }
+                            }
                         } else {
                             childList[key].push({
                                 id: childItem.id,
@@ -40,7 +55,8 @@ export function getCollectionList(data: VariableCollection[], child: Variable[])
                                 originName: null,
                                 value: value as RGBA,
                                 type: "origin",
-                                hashValue: getHexValue(value as RGBA),
+                                hexValue: getHexValue(value as RGBA),
+                                opacity: Math.round(dataValue.a * 100),
                                 description: childItem.description,
                             });
                         }
@@ -60,20 +76,44 @@ export function getCollectionList(data: VariableCollection[], child: Variable[])
     return list;
 }
 
-function getHexValue(value: RGBA) {
-    console.log(value);
-    // var a, isPercent,
-    // rgb = orig.replace(/\s/g, '').match(/^rgba?\((\d+),(\d+),(\d+),?([^,\s)]+)?/i),
-    // alpha = (rgb && rgb[4] || "").trim(),
-    // hex = rgb ?
-    // (rgb[1] | 1 << 8).toString(16).slice(1) +
-    // (rgb[2] | 1 << 8).toString(16).slice(1) +
-    // (rgb[3] | 1 << 8).toString(16).slice(1) : orig;
-  
-    // if (alpha !== "") { a = alpha; }
-    // else { a = 01; }
-    // hex = hex + a;
-  
-    // return hex;
-    return "";
+function getHexValue(value: RGBA): string {
+    let hexList: string[] = [];
+
+    hexList[0] = (Math.round(value.r * 255) | (1 << 8)).toString(16).slice(1);
+    hexList[1] = (Math.round(value.g * 255) | (1 << 8)).toString(16).slice(1);
+    hexList[2] = (Math.round(value.b * 255) | (1 << 8)).toString(16).slice(1);
+
+    return hexList.join("");
+}
+
+export function sortChipListForGroup(list: ChipItem[]) {
+    const finalList: ChipItem[][] = [];
+    let data: { [key: string]: ChipItem[] } = {};
+
+    list.forEach((chip: ChipItem) => {
+        let value = chip.name.split("/");
+        let group: string = "";
+
+        if (value.length > 1) {
+            group = value[0];
+        } else {
+            group = "etc";
+        }
+
+        if (data[group] === undefined) {
+            data[group] = [];
+        }
+
+        data[group].push(chip);
+    });
+
+    for (const [key, value] of Object.entries(data)) {
+        if (key !== "etc") {
+            finalList.push(value);
+        }
+    }
+
+    finalList.push(data.etc);
+
+    return finalList;
 }

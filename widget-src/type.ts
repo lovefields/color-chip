@@ -17,7 +17,8 @@ export interface ChipItem {
     name: string;
     type: string;
     originName: string | null;
-    hashValue: string | null;
+    hexValue: string;
+    opacity: number;
     value: RGBA;
 }
 

@@ -1,8 +1,8 @@
-import type { Collection } from "./type";
-import { getCollectionList } from "./utils";
+import type { Collection, ChipItem } from "./type";
+import { getCollectionList, sortChipListForGroup } from "./utils";
 
 const { widget } = figma;
-const { useSyncedState, useEffect, AutoLayout, Text, Span } = widget;
+const { useSyncedState, useEffect, usePropertyMenu, AutoLayout, Text, Span, Rectangle } = widget;
 
 function ColorChipWidget() {
     const [mode, setMode] = useSyncedState<string>("mode", "error"); // list, error, chip
@@ -19,7 +19,7 @@ function ColorChipWidget() {
             if (collectionList.length === 0 || vartiableList.length === 0) {
                 setMode("error");
             } else {
-                const list = getCollectionList(collectionList, vartiableList);
+                const list = getCollectionList(collectionList, vartiableList, figma);
 
                 if (list.length === 0) {
                     setMode("error");
@@ -32,29 +32,127 @@ function ColorChipWidget() {
         }
     });
 
+    usePropertyMenu(
+        [
+            {
+                itemType: "action",
+                tooltip: "Reset",
+                propertyName: "reset",
+            },
+            {
+                itemType: "action",
+                tooltip: "Refresh",
+                propertyName: "refresh",
+            },
+        ],
+        ({ propertyName, propertyValue }) => {
+            if (propertyName === "reset") {
+                setMode("list");
+            }
+
+            if (propertyName === "refresh") {
+                const figmaCollectionList = figma.variables.getLocalVariableCollections();
+                const vartiableList = figma.variables.getLocalVariables();
+
+                if (figmaCollectionList.length === 0 || vartiableList.length === 0) {
+                    setMode("error");
+                } else {
+                    const list = getCollectionList(figmaCollectionList, vartiableList, figma);
+
+                    if (list.length === 0) {
+                        setMode("error");
+                    } else {
+                        setCollectionList(list);
+
+                        if (currentCollection !== null) {
+                            setCurrentCollection(list.filter((item) => item.id === currentCollection.id)[0]);
+                        }
+                    }
+                }
+            }
+        }
+    );
+
     switch (mode) {
         case "chip":
             const pageData = currentCollection as Collection;
-            console.log(pageData)
-
             const listStructure = pageData.modes.map((mode, i) => {
+                const chipListData = sortChipListForGroup(pageData.child[mode.modeId]);
+                const row = chipListData.map((row: ChipItem[], j) => {
+                    const col = row.map((chip: ChipItem, k) => {
+                        return (
+                            <AutoLayout
+                                width={214}
+                                direction="vertical"
+                                key={k}
+                            >
+                                <Rectangle width="fill-parent" height={140} fill={chip.value} stroke="#e0e0e0" strokeWidth={1} cornerRadius={10}></Rectangle>
+
+                                <AutoLayout
+                                    width="fill-parent"
+                                    direction="vertical"
+                                    padding={{
+                                        horizontal: 16,
+                                        vertical: 12,
+                                    }}
+                                    spacing={6}
+                                    stroke="#e0e0e0"
+                                    strokeWidth={1}
+                                    cornerRadius={10}
+                                >
+                                    <Text fill="#333" fontFamily="Inter" fontSize={12} fontWeight={700} width="fill-parent" truncate={2}>
+                                        {chip.name}
+                                    </Text>
+
+                                    {chip.originName ? (
+                                        <Text fill="#333" fontFamily="Inter" fontSize={12} fontWeight={700}>
+                                            {chip.originName} (link)
+                                        </Text>
+                                    ) : (
+                                        <Text fill="#333" fontFamily="Inter" fontSize={12} fontWeight={700}>
+                                            #{chip.hexValue}
+                                        </Text>
+                                    )}
+
+                                    {chip.description ? (
+                                        <Text fill="#333" fontFamily="Inter" fontSize={12} fontWeight={700} truncate={2}>
+                                            {chip.description}
+                                        </Text>
+                                    ) : null}
+                                </AutoLayout>
+                            </AutoLayout>
+                        );
+                    });
+
+                    return (
+                        <AutoLayout height="hug-contents" key={j} spacing={16}>
+                            {col}
+                        </AutoLayout>
+                    );
+                });
 
                 return (
-                    <AutoLayout key={i} direction="vertical" spacing={12}>
-                        <AutoLayout
-                            width="hug-contents"
-                            height={37}
-                            fill="#eff3ff"
-                            verticalAlignItems="center"
-                            padding={{
-                                vertical: 8,
-                                horizontal: 12,
-                            }}
-                            cornerRadius={5}
-                        >
-                            <Text fill="#5176f8" fontFamily="Inter" fontSize={14} fontWeight={600}>
-                                {mode.name}
-                            </Text>
+                    <AutoLayout key={i} width="hug-contents" height="hug-contents" direction="vertical" spacing={12}>
+                        {pageData.modes.length === 1 ? null : (
+                            <AutoLayout
+                                width="hug-contents"
+                                height={37}
+                                fill="#eff3ff"
+                                verticalAlignItems="center"
+                                padding={{
+                                    vertical: 8,
+                                    horizontal: 12,
+                                }}
+                                cornerRadius={5}
+                            >
+                                <Text fill="#5176f8" fontFamily="Inter" fontSize={14} fontWeight={600}>
+                                    {mode.name}
+                                </Text>
+                            </AutoLayout>
+                        )}
+
+                        <AutoLayout direction="vertical" spacing={30}>
+                            {row}
                         </AutoLayout>
                     </AutoLayout>
                 );
@@ -80,9 +178,9 @@ function ColorChipWidget() {
                         <Text fill="#333" fontFamily="Inter" fontSize={20} fontWeight={900}>
                             {pageData.name}
                         </Text>
-                        <Text fill="#949494" fontFamily="Inter" fontSize={16} fontWeight={500}>
+                        {/* <Text fill="#949494" fontFamily="Inter" fontSize={16} fontWeight={500}>
                             Click to copy!
-                        </Text>
+                        </Text> */}
                     </AutoLayout>
 
                     {listStructure}
@@ -90,8 +188,6 @@ function ColorChipWidget() {
             );
             break;
         case "list":
-            console.log(collectionList);
-
             let collectionStructure = collectionList.map((item, i) => {
                 return (
                     <AutoLayout
