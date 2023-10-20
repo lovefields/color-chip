@@ -113,7 +113,9 @@ export function sortChipListForGroup(list: ChipItem[]) {
         }
     }
 
-    finalList.push(data.etc);
+    if (data.etc) {
+        finalList.push(data.etc);
+    }
 
     return finalList;
 }

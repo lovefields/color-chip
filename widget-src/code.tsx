@@ -81,11 +81,7 @@ function ColorChipWidget() {
                 const row = chipListData.map((row: ChipItem[], j) => {
                     const col = row.map((chip: ChipItem, k) => {
                         return (
-                            <AutoLayout
-                                width={214}
-                                direction="vertical"
-                                key={k}
-                            >
+                            <AutoLayout width={214} direction="vertical" key={k}>
                                 <Rectangle width="fill-parent" height={140} fill={chip.value} stroke="#e0e0e0" strokeWidth={1} cornerRadius={10}></Rectangle>
 
                                 <AutoLayout
