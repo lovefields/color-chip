@@ -30,6 +30,10 @@ function ColorChipWidget() {
             }
             setIsLoad(true);
         }
+
+        figma.ui.onmessage = (msg) => {
+            figma.closePlugin();
+        };
     });
 
     usePropertyMenu(
@@ -44,9 +48,15 @@ function ColorChipWidget() {
                 tooltip: "Refresh",
                 propertyName: "refresh",
             },
+            {
+                itemType: "action",
+                tooltip: "Export CSS",
+                propertyName: "export",
+            },
         ],
         ({ propertyName, propertyValue }) => {
             if (propertyName === "reset") {
+                setCurrentCollection(null);
                 setMode("list");
             }
 
@@ -68,6 +78,63 @@ function ColorChipWidget() {
                             setCurrentCollection(list.filter((item) => item.id === currentCollection.id)[0]);
                         }
                     }
+                }
+            }
+
+            if (propertyName === "export") {
+                if (currentCollection !== null) {
+                    const pageData = currentCollection as Collection;
+                    let cssData = "";
+
+                    cssData += `:root {`;
+
+                    pageData.modes.map((mode, i) => {
+                        const chipListData = sortChipListForGroup(pageData.child[mode.modeId]);
+                        cssData += `\n`;
+                        chipListData.map((row: ChipItem[], j) => {
+                            row.map((chip: ChipItem, k) => {
+                                cssData += `--color-${chip.name
+                                    .toLocaleLowerCase()
+                                    .replace("/", "-")
+                                    .replaceAll(/[!@#\$%\^&\*()_\+\|]/g, "")}:`;
+
+                                if (chip.value.a !== 1) {
+                                    cssData += `rgba(${Math.round(chip.value.r * 255)},${Math.round(chip.value.g * 255)},${Math.round(chip.value.b * 255)},${chip.value.a.toFixed(2)});`;
+                                } else {
+                                    cssData += `#${chip.hexValue};`;
+                                }
+
+                                cssData += `\n`;
+                            });
+
+                            cssData += `\n`;
+                        });
+                    });
+
+                    cssData += `}`;
+
+                    return new Promise((resolve) => {
+                        figma.showUI(`
+                                <script>
+                                    window.onmessage = (event) => {
+                                        const data = event.data.pluginMessage;
+                                        const link = document.createElement("a");
+                                        link.href = "data:text/css;base64," + btoa(data.content);
+                                        link.download = data.title;
+                                        document.body.appendChild(link);
+                                        link.click();
+
+                                        parent.postMessage({ pluginMessage: { type: "close" } }, "*");
+                                    };
+                                </script>
+                            `);
+                        figma.ui.postMessage({
+                            title: "Color Chip",
+                            content: cssData,
+                        });
+                    });
+                } else {
+                    figma.notify("Choose you'r Color Variables.");
                 }
             }
         }
