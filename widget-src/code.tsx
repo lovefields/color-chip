@@ -40,14 +40,14 @@ function ColorChipWidget() {
                 propertyName: "export",
             },
         ],
-        ({ propertyName, propertyValue }) => {
+        async ({ propertyName, propertyValue }) => {
             if (propertyName === "reset") {
                 setCurrentCollection(null);
                 setMode("list");
             }
 
             if (propertyName === "refresh") {
-                setup({ setMode: setMode, setCollectionList: setCollectionList });
+                await setup({ setMode: setMode, setCollectionList: setCollectionList });
             }
 
             if (propertyName === "export") {
