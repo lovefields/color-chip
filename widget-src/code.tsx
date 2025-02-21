@@ -1,5 +1,5 @@
 import type { Collection, ChipItem } from "./type";
-import { getCollectionList, sortChipListForGroup } from "./utils";
+import { getCollectionList, sortChipListForGroup, setup } from "./utils";
 
 const { widget } = figma;
 const { useSyncedState, useEffect, usePropertyMenu, AutoLayout, Text, Span, Rectangle } = widget;
@@ -13,21 +13,7 @@ function ColorChipWidget() {
 
     useEffect(() => {
         if (collectionList.length === 0 && isLoad === false) {
-            const collectionList = figma.variables.getLocalVariableCollections();
-            const vartiableList = figma.variables.getLocalVariables();
-
-            if (collectionList.length === 0 || vartiableList.length === 0) {
-                setMode("error");
-            } else {
-                const list = getCollectionList(collectionList, vartiableList, figma);
-
-                if (list.length === 0) {
-                    setMode("error");
-                } else {
-                    setMode("list");
-                    setCollectionList(list);
-                }
-            }
+            setup({ setMode: setMode, setCollectionList: setCollectionList });
             setIsLoad(true);
         }
 
@@ -61,24 +47,7 @@ function ColorChipWidget() {
             }
 
             if (propertyName === "refresh") {
-                const figmaCollectionList = figma.variables.getLocalVariableCollections();
-                const vartiableList = figma.variables.getLocalVariables();
-
-                if (figmaCollectionList.length === 0 || vartiableList.length === 0) {
-                    setMode("error");
-                } else {
-                    const list = getCollectionList(figmaCollectionList, vartiableList, figma);
-
-                    if (list.length === 0) {
-                        setMode("error");
-                    } else {
-                        setCollectionList(list);
-
-                        if (currentCollection !== null) {
-                            setCurrentCollection(list.filter((item) => item.id === currentCollection.id)[0]);
-                        }
-                    }
-                }
+                setup({ setMode: setMode, setCollectionList: setCollectionList });
             }
 
             if (propertyName === "export") {

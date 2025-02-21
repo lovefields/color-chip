@@ -1,9 +1,10 @@
 import type { Collection, ChipItem, RGBA } from "./type";
 
-export function getCollectionList(data: VariableCollection[], child: Variable[], _figma: PluginAPI): Collection[] {
+export function getCollectionList(data: VariableCollection[], child: Variable[]): Promise<Collection[]> {
     const list: Collection[] = [];
     const colorChipList = child.filter((item) => item.resolvedType === "COLOR" && item.hiddenFromPublishing === false);
     const hasColorVariable = colorChipList.length > 0;
+    const childChipLogic: Promise<boolean>[] = [];
 
     if (hasColorVariable === true) {
         let parentList: string[] = [];
@@ -14,7 +15,7 @@ export function getCollectionList(data: VariableCollection[], child: Variable[],
 
         parentList = [...new Set(parentList)];
 
-        parentList.forEach((item) => {
+        parentList.forEach((item: string) => {
             const collectionData = data.filter((row) => row.id === item)[0];
             const childList: { [key: string]: ChipItem[] } = {};
 
@@ -22,31 +23,36 @@ export function getCollectionList(data: VariableCollection[], child: Variable[],
                 childList[mode.modeId] = [];
             });
 
-            colorChipList.forEach((childItem) => {
+            colorChipList.forEach(async (childItem) => {
                 if (childItem.variableCollectionId === item) {
                     for (const [key, value] of Object.entries(childItem.valuesByMode)) {
                         const dataValue = value as any;
 
                         if (dataValue?.type !== undefined) {
-                            const originalChip = _figma.variables.getVariableById(dataValue.id);
+                            childChipLogic.push(
+                                new Promise(async (resolv) => {
+                                    const originalChip = await figma.variables.getVariableByIdAsync(dataValue.id);
 
-                            if (originalChip !== null) {
-                                for (const [originKey, originValue] of Object.entries(originalChip.valuesByMode)) {
-                                    const originDataValue = originValue as RGBA;
+                                    if (originalChip !== null) {
+                                        for (const [originKey, originValue] of Object.entries(originalChip.valuesByMode)) {
+                                            const originDataValue = originValue as RGBA;
 
-                                    childList[key].push({
-                                        id: childItem.id,
-                                        hiddenFromPublishing: childItem.hiddenFromPublishing,
-                                        name: childItem.name,
-                                        originName: originalChip.name,
-                                        value: originDataValue as RGBA,
-                                        type: "origin",
-                                        hexValue: getHexValue(originDataValue),
-                                        opacity: Math.round(originDataValue.a * 100),
-                                        description: childItem.description,
-                                    });
-                                }
-                            }
+                                            childList[key].push({
+                                                id: childItem.id,
+                                                hiddenFromPublishing: childItem.hiddenFromPublishing,
+                                                name: childItem.name,
+                                                originName: originalChip.name,
+                                                value: originDataValue as RGBA,
+                                                type: "origin",
+                                                hexValue: getHexValue(originDataValue),
+                                                opacity: Math.round(originDataValue.a * 100),
+                                                description: childItem.description,
+                                            });
+                                        }
+                                    }
+                                    resolv(true);
+                                })
+                            );
                         } else {
                             childList[key].push({
                                 id: childItem.id,
@@ -73,7 +79,9 @@ export function getCollectionList(data: VariableCollection[], child: Variable[],
         });
     }
 
-    return list;
+    return Promise.all(childChipLogic).then(() => {
+        return list;
+    });
 }
 
 function getHexValue(value: RGBA): string {
@@ -117,5 +125,44 @@ export function sortChipListForGroup(list: ChipItem[]) {
         finalList.push(data.etc);
     }
 
+    finalList.forEach((child: ChipItem[]) => {
+        child.sort((a, b) => {
+            if (a.name.length !== b.name.length) {
+                if (a.name.length < b.name.length) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            } else {
+                if (b.name > a.name) {
+                    return -1;
+                } else if (b.name < a.name) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+            }
+        });
+    });
+
     return finalList;
+}
+
+export async function setup({ setMode, setCollectionList }: { setMode: Function; setCollectionList: Function }) {
+    figma.variables.getLocalVariableCollectionsAsync().then(async (collectionList) => {
+        const vartiableList = await figma.variables.getLocalVariablesAsync();
+
+        if (collectionList.length === 0 || vartiableList.length === 0) {
+            setMode("error");
+        } else {
+            const list = await getCollectionList(collectionList, vartiableList);
+
+            if (list.length === 0) {
+                setMode("error");
+            } else {
+                setMode("list");
+                setCollectionList(list);
+            }
+        }
+    });
 }
